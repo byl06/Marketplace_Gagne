@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GAGNE — Téléchargement</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    body {
+      background: var(--paper);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      margin: 0;
+    }
+    .download-box {
+      max-width: 600px;
+      width: 100%;
+      background: var(--white);
+      border: 1.5px solid var(--ink);
+      border-radius: var(--radius-m);
+      padding: 40px;
+      box-shadow: var(--shadow-hard);
+    }
+    .download-box .logo {
+      font-family: 'Fraunces', serif;
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .download-box .logo .badge {
+      font-size: 10px;
+      background: var(--accent);
+      color: var(--white);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .download-box .sub {
+      text-align: center;
+      font-size: 14px;
+      color: var(--ink-soft);
+      margin-bottom: 28px;
+    }
+    .download-box .success-icon {
+      text-align: center;
+      font-size: 56px;
+      margin-bottom: 8px;
+    }
+    .download-box .success-title {
+      text-align: center;
+      font-family: 'Fraunces', serif;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .download-box .success-desc {
+      text-align: center;
+      font-size: 14px;
+      color: var(--ink-soft);
+      margin-bottom: 24px;
+    }
+    .download-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 16px;
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-s);
+      margin-bottom: 10px;
+      transition: all 0.2s ease;
+      background: var(--white);
+    }
+    .download-item:hover {
+      border-color: var(--ink);
+      transform: translateX(4px);
+    }
+    .download-item .thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-s);
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
+    }
+    .download-item .info {
+      flex: 1;
+    }
+    .download-item .info .title {
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .download-item .info .pages {
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+    .download-item .btn-download {
+      background: var(--gold);
+      border: none;
+      color: var(--white);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+    .download-item .btn-download:hover {
+      background: #8f6a1e;
+      transform: scale(1.02);
+    }
+    .download-item .btn-download.downloaded {
+      background: #1F6E5C;
+    }
+    .download-all {
+      width: 100%;
+      padding: 14px;
+      border-radius: 999px;
+      font-size: 16px;
+      font-weight: 600;
+      background: var(--ink);
+      color: var(--paper);
+      border: 2px solid var(--ink);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 16px;
+    }
+    .download-all:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hard);
+    }
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--ink-soft);
+    }
+    .back-link a {
+      color: var(--accent);
+      font-weight: 500;
+      text-decoration: underline;
+    }
+    .back-link a:hover {
+      color: var(--accent-ink);
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+    }
+    .empty-state .icon { font-size: 48px; display: block; margin-bottom: 12px; }
+    .empty-state h3 { font-family: 'Fraunces', serif; font-size: 20px; margin-bottom: 8px; }
+    .empty-state p { color: var(--ink-soft); font-size: 14px; }
+    .empty-state .btn { margin-top: 16px; }
+  </style>
+</head>
+<body>
+
+  <div class="download-box">
+    <div class="logo">GAGNE <span class="badge">beta</span></div>
+    
+    <div id="downloadContent">
+      <div class="success-icon">🎉</div>
+      <div class="success-title">Paiement confirmé !</div>
+      <div class="success-desc">Télécharge tes guides ci-dessous :</div>
+
+      <div id="downloadItems"></div>
+
+      <button class="download-all" id="downloadAllBtn" style="display:none;">
+        📥 Télécharger tout
+      </button>
+    </div>
+
+    <div class="back-link">
+      <a href="index.html">← Retour à la boutique</a>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    //  DOWNLOAD PAGE
+    // ============================================================
+    
+    function getPurchasedItems() {
+      try {
+        const data = localStorage.getItem('gagne:purchased');
+        if (data) {
+          const items = JSON.parse(data);
+          return items.filter(item => item.link);
+        }
+      } catch(e) {}
+      return [];
+    }
+
+    function getAllPurchasedItems() {
+      try {
+        const data = localStorage.getItem('gagne:purchased');
+        if (data) return JSON.parse(data);
+      } catch(e) {}
+      return [];
+    }
+
+    function renderDownloadItems() {
+      const container = document.getElementById('downloadItems');
+      const items = getPurchasedItems();
+      const allItems = getAllPurchasedItems();
+
+      if (items.length === 0) {
+        // Vérifier s'il y a des achats sans lien
+        if (allItems.length > 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <span class="icon">🔗</span>
+              <h3>Liens de téléchargement</h3>
+              <p>Les liens de téléchargement seront bientôt disponibles.</p>
+              <p style="font-size:12px; margin-top:4px; color:var(--ink-soft);">
+                ${allItems.length} guide${allItems.length > 1 ? 's' : ''} acheté${allItems.length > 1 ? 's' : ''}
+              </p>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="empty-state">
+              <span class="icon">📭</span>
+              <h3>Aucun guide à télécharger</h3>
+              <p>Tu n'as pas encore de guides achetés.</p>
+              <a href="/" class="btn gold" style="display:inline-flex; margin-top:16px;">Explorer la boutique</a>
+            </div>
+          `;
+        }
+        document.getElementById('downloadAllBtn').style.display = 'none';
+        return;
+      }
+
+      container.innerHTML = items.map((item, index) => `
+        <div class="download-item">
+          <div class="thumb" style="background-image: url('${item.image || 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=100&h=100&fit=crop'}');"></div>
+          <div class="info">
+            <div class="title">${escapeHtml(item.title)}</div>
+            <div class="pages">${item.pages || 0} pages • ${escapeHtml(item.category || '')}</div>
+          </div>
+          <button class="btn-download" onclick="downloadFile('${item.id}')">
+            📥 Télécharger
+          </button>
+        </div>
+      `).join('');
+
+      document.getElementById('downloadAllBtn').style.display = items.length > 1 ? 'block' : 'none';
+    }
+
+    function downloadFile(id) {
+      const items = getPurchasedItems();
+      const item = items.find(i => i.id === id);
+      if (item && item.link) {
+        window.open(item.link, '_blank');
+        markAsDownloaded(id);
+        showToast('📥 Téléchargement lancé');
+      } else {
+        showToast('❌ Lien de téléchargement non disponible');
+      }
+    }
+
+    function markAsDownloaded(id) {
+      try {
+        let items = JSON.parse(localStorage.getItem('gagne:purchased') || '[]');
+        items = items.map(item => {
+          if (item.id === id) {
+            return { ...item, downloaded: true };
+          }
+          return item;
+        });
+        localStorage.setItem('gagne:purchased', JSON.stringify(items));
+        // Mettre à jour le bouton
+        const btns = document.querySelectorAll('.btn-download');
+        btns.forEach(btn => {
+          if (btn.onclick && btn.onclick.toString().includes(id)) {
+            btn.textContent = '✅ Téléchargé';
+            btn.classList.add('downloaded');
+            btn.disabled = true;
+          }
+        });
+      } catch(e) {}
+    }
+
+    function downloadAll() {
+      const items = getPurchasedItems();
+      if (items.length === 0) return;
+
+      items.forEach((item, index) => {
+        setTimeout(() => {
+          if (item.link) {
+            window.open(item.link, '_blank');
+            markAsDownloaded(item.id);
+          }
+        }, index * 400);
+      });
+
+      showToast(`📥 Téléchargement de ${items.length} guide(s) en cours...`);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function showToast(msg) {
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.style.cssText = `
+        position: fixed; bottom: 24px; left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: #15161F; color: #F7F6F1;
+        padding: 12px 24px; border-radius: 999px;
+        font-size: 13px; font-weight: 500;
+        opacity: 0; pointer-events: none;
+        transition: all 0.3s ease;
+        z-index: 200; max-width: 90%;
+        text-align: center;
+      `;
+      document.body.appendChild(t);
+      
+      setTimeout(() => t.style.opacity = '1', 10);
+      setTimeout(() => {
+        t.style.opacity = '0';
+        setTimeout(() => t.remove(), 300);
+      }, 2500);
+    }
+
+    // ============================================================
+    //  INIT
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      renderDownloadItems();
+
+      const downloadAllBtn = document.getElementById('downloadAllBtn');
+      if (downloadAllBtn) {
+        downloadAllBtn.addEventListener('click', downloadAll);
+      }
+    });
+
+    // Exposer les fonctions pour les boutons onclick
+    window.downloadFile = downloadFile;
+    window.downloadAll = downloadAll;
+    window.escapeHtml = escapeHtml;
+  </script>
+
+</body>
+</html>

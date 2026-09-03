@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GAGNE — Des guides qui rapportent</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+  <!-- ========== NAV ========== -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <div class="logo">
+        <a href="index.html">GAGNE <span class="badge">beta</span></a>
+      </div>
+      <div class="nav-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
+          <path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <input type="text" id="searchInput" placeholder="Rechercher un guide..." />
+      </div>
+      <div class="nav-actions">
+        <button class="cart-btn" onclick="toggleCart()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+          </svg>
+          <span class="cart-badge" id="cartCount">0</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ========== PAGE: MARKETPLACE ========== -->
+  <div id="page-marketplace">
+    <header class="hero">
+      <div class="wrap">
+        <p class="hero-eyebrow">📚 Une boutique d'ebooks pratiques, écrits pour être appliqués</p>
+        <h1><span>Des guides</span><span>qui rapportent</span><span>vraiment.</span></h1>
+        <p class="hero-sub">Pas de théorie qui traîne. Des méthodes courtes, testées et actionnables pour lancer une activité, un produit ou tes premiers revenus.</p>
+        <div class="hero-stats" id="heroStats"></div>
+      </div>
+    </header>
+
+    <section class="section" id="catalogue">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Le catalogue</h2>
+          <p>Filtre par catégorie, niveau ou trie par prix.</p>
+        </div>
+
+        <div class="filters">
+          <div class="filter-row" id="categoryPills"></div>
+          <div class="filter-row">
+            <span class="row-label">Niveau</span>
+            <button class="pill active" data-level="Tous">Tous</button>
+            <button class="pill" data-level="Débutant">Débutant</button>
+            <button class="pill" data-level="Intermédiaire">Intermédiaire</button>
+            <button class="pill" data-level="Avancé">Avancé</button>
+            <select class="sort-select" id="sortSelect">
+              <option value="recent">Plus récents</option>
+              <option value="price-asc">Prix croissant</option>
+              <option value="price-desc">Prix décroissant</option>
+              <option value="alpha">Titre (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid" id="grid"></div>
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <h3>Aucun résultat</h3>
+          <p>Essaie une autre recherche ou réinitialise les filtres.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ========== PAGE: PRODUCT ========== -->
+  <div id="page-product" style="display:none;">
+    <div class="wrap">
+      <div class="product-hero">
+        <a href="/" onclick="navigate('marketplace'); return false;" style="font-size:14px; color:var(--ink-soft); display:inline-flex; align-items:center; gap:6px;">
+          ← Retour à la boutique
+        </a>
+      </div>
+      <div class="product-layout" id="productContent">
+        <div class="product-image">
+          <img id="productImage" src="" alt="" />
+        </div>
+        <div class="product-info">
+          <h1 id="productTitle"></h1>
+          <div class="product-meta">
+            <span id="productCategory"></span>
+            <span>•</span>
+            <span id="productLevel"></span>
+            <span>•</span>
+            <span id="productPages"></span>
+          </div>
+          <div class="product-price" id="productPrice"></div>
+          <p class="product-desc" id="productDesc"></p>
+          <div class="product-actions">
+            <button class="btn gold" id="productAddToCart">🛒 Ajouter au panier</button>
+            <button class="btn" id="productBuyNow" style="background:var(--ink);">Acheter maintenant</button>
+          </div>
+          <div class="product-share">
+            <span>🔗 Partager :</span>
+            <button class="share-btn" onclick="copyProductLink()">📋 Copier le lien</button>
+            <button class="share-btn" onclick="shareProduct('whatsapp')">💬 WhatsApp</button>
+            <button class="share-btn" onclick="shareProduct('facebook')">📘 Facebook</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== CART MODAL ========== -->
+  <div class="modal-overlay" id="cartModalOverlay">
+    <div class="modal cart-modal">
+      <div class="cart-header">
+        <h3>🛒 Mon panier</h3>
+        <button class="close-cart" onclick="toggleCart()">✕</button>
+      </div>
+      <div id="cartContent">
+        <div id="cartEmpty" style="text-align:center; padding:40px 0; color:var(--ink-soft);">
+          <p style="font-size:48px; margin-bottom:12px;">🛒</p>
+          <p>Votre panier est vide</p>
+          <p style="font-size:13px; margin-top:4px;">Ajoutez des guides depuis la boutique</p>
+        </div>
+        <div id="cartItems" style="display:none;"></div>
+        <div id="cartSummary" style="display:none;">
+          <div class="cart-total">
+            <span>Total</span>
+            <span class="cart-total-price" id="cartTotalPrice">0 FCFA</span>
+          </div>
+          <button class="btn gold" style="width:100%; justify-content:center;" onclick="checkoutCart()">
+            💳 Passer la commande
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== FOOTER ========== -->
+  <footer>
+    <div class="wrap footer-inner">
+      <div class="logo">GAGNE</div>
+      <div>
+        <a href="admin/login.html" class="admin-link">Admin</a>
+        <span style="font-size:12px; color:var(--ink-soft); margin:0 8px;">•</span>
+        <p style="display:inline; font-size:12px; color:var(--ink-soft);">© 2026 GAGNE</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========== PAYMENT MODAL ========== -->
+  <div class="modal-overlay" id="paymentModalOverlay">
+    <div class="modal payment-modal">
+      <div class="payment-header">
+        <h3>💳 Paiement sécurisé</h3>
+        <p class="modal-sub" id="paymentSub">Choisis ton moyen de paiement</p>
+      </div>
+
+      <div id="paymentContent">
+        <div class="payment-summary">
+          <div>
+            <span class="pay-label">📖 Guide</span>
+            <span class="pay-title" id="payTitle">Chargement...</span>
+          </div>
+          <div>
+            <span class="pay-label">Total</span>
+            <span class="pay-total" id="payTotal">0 FCFA</span>
+          </div>
+        </div>
+
+        <!-- Méthodes de paiement -->
+        <div class="payment-methods-grid">
+          <!-- MTN -->
+          <div class="payment-method selected" data-method="mtn">
+            <div class="method-icon">
+              <img src="mtn.jpg" alt="MTN" />
+            </div>
+            <span class="method-name">MTN Mobile Money</span>
+          </div>
+          <!-- Moov -->
+          <div class="payment-method" data-method="moov">
+            <div class="method-icon">
+              <img src="moov.jpg" alt="Moov" />
+            </div>
+            <span class="method-name">Moov Money</span>
+          </div>
+          <!-- Celtiis -->
+          <div class="payment-method" data-method="celtiis">
+            <div class="method-icon">
+              <img src="celtiis.png" alt="Celtiis" height="10px" width="10px" />
+            </div>
+            <span class="method-name">Celtiis</span>
+          </div>
+        </div>
+
+        <!-- Formulaire -->
+        <div class="payment-form">
+          <div class="field">
+            <label for="payPhone">📱 Numéro de téléphone</label>
+            <div class="phone-input-group">
+              <span class="phone-prefix" id="phonePrefix">+229</span>
+              <input type="tel" id="payPhone" placeholder="01 51 00 00 00" required />
+            </div>
+            <p class="field-hint" id="phoneHint">Exemple : 01 51 00 00 00 (10 chiffres)</p>
+          </div>
+        </div>
+
+        <!-- Boutons -->
+        <div class="payment-actions">
+          <button type="button" class="btn secondary" id="cancelPayment">Annuler</button>
+          <button type="button" class="btn gold" id="submitPayment">
+            🔒 Payer maintenant
+          </button>
+        </div>
+
+        <div class="payment-footer">
+          <div class="security-badge">
+            <span>🔒</span>
+            <span>Paiement sécurisé via PayDunya</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== TOAST ========== -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ========== SCRIPTS ========== -->
+  <script src="config/config.js"></script>
+  <script src="assets/js/payment.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
