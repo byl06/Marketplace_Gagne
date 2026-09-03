@@ -1,0 +1,24 @@
+# Node.js / Backend
+backend/node_modules/
+backend/.env
+backend/orders.json
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Fichiers temporaires
+*.tmp
+*.log
+*.cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Fichiers de build
+dist/
+build/

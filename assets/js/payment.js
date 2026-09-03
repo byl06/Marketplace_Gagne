@@ -1,6 +1,11 @@
 // ============================================================
-//  PAYMENT.JS - Paiements Bénin (MTN + Moov + Celtiis)
+//  PAYMENT.JS - Paiements Bénin (Appel au backend)
 // ============================================================
+
+// URL du backend (à changer selon ton hébergement)
+const BACKEND_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000'
+  : 'https://gagne-backend.onrender.com'; // À remplacer par ta future URL
 
 let pendingPaymentId = null;
 let selectedMethod = 'mtn';
@@ -10,7 +15,6 @@ let isProcessing = false;
 //  INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
-  // Sélection des méthodes
   document.querySelectorAll('.payment-method').forEach(el => {
     el.addEventListener('click', function() {
       document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('selected'));
@@ -20,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
 
-  // Boutons
   const submitBtn = document.getElementById('submitPayment');
   if (submitBtn) submitBtn.addEventListener('click', handlePayment);
   
@@ -60,30 +63,7 @@ function updatePhonePlaceholder() {
 
 function validatePhone(phone) {
   const clean = phone.replace(/\s/g, '');
-  
-  if (selectedMethod === 'mtn') {
-    // MTN : 10 chiffres, commence par 01
-    return /^01\d{8}$/.test(clean);
-  } else if (selectedMethod === 'moov') {
-    // Moov : 10 chiffres, commence par 01
-    return /^01\d{8}$/.test(clean);
-  } else if (selectedMethod === 'celtiis') {
-    // Celtiis : 10 chiffres, commence par 01
-    return /^01\d{8}$/.test(clean);
-  }
-  return false;
-}
-
-function formatPhoneForAPI(phone) {
-  const clean = phone.replace(/\s/g, '');
-  if (selectedMethod === 'mtn') {
-    return clean; // 01XXXXXXXX
-  } else if (selectedMethod === 'moov') {
-    return '+229' + clean; // +22901XXXXXXXX
-  } else if (selectedMethod === 'celtiis') {
-    return '+229' + clean; // +22901XXXXXXXX
-  }
-  return clean;
+  return /^01\d{8}$/.test(clean);
 }
 
 // ============================================================
@@ -109,7 +89,6 @@ function openPayment(id) {
       document.getElementById('payTotal').textContent = fmtPrice(ebook.price);
       document.getElementById('payPhone').value = '';
       
-      // Reset selection
       document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
       document.querySelector('.payment-method[data-method="mtn"]').classList.add('selected');
       selectedMethod = 'mtn';
@@ -163,7 +142,7 @@ function savePurchasedItems(items) {
 }
 
 // ============================================================
-//  HANDLE PAYMENT
+//  HANDLE PAYMENT (Appel au backend)
 // ============================================================
 async function handlePayment() {
   if (isProcessing) return;
@@ -177,15 +156,7 @@ async function handlePayment() {
   }
   
   if (!validatePhone(phone)) {
-    let msg = '';
-    if (selectedMethod === 'mtn') {
-      msg = '📱 Numéro MTN invalide (ex: 01 51 00 00 00)';
-    } else if (selectedMethod === 'moov') {
-      msg = '📱 Numéro Moov invalide (ex: 01 64 00 00 00)';
-    } else if (selectedMethod === 'celtiis') {
-      msg = '📱 Numéro Celtiis invalide (ex: 01 43 00 00 00)';
-    }
-    showToast(msg);
+    showToast('📱 Numéro invalide (ex: 01 51 00 00 00)');
     return;
   }
 
@@ -228,17 +199,33 @@ async function handlePayment() {
 
   try {
     // ============================================================
-    //  SIMULATION DE PAIEMENT
+    //  APPEL AU BACKEND POUR CRÉER LA TRANSACTION
     // ============================================================
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
+    const response = await fetch(`${BACKEND_URL}/api/paydunya/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: items,
+        phone: phone,
+        method: selectedMethod
+      })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || 'Erreur lors de la création du paiement');
+    }
+
+    // Transaction créée avec succès
     payBtn.innerHTML = '📱 Confirme sur ton téléphone...';
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Attendre la confirmation (simulation)
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Succès
     savePurchasedItems(items);
     
-    // Vider le panier
     if (window._cartForPayment) {
       if (typeof cart !== 'undefined') {
         cart = [];
@@ -253,10 +240,8 @@ async function handlePayment() {
     
     showToast(`✅ Paiement de ${fmtPrice(total)} confirmé !`);
     
-    // Barre de progression
     showProgressBar();
     
-    // Redirection après 2.5s
     setTimeout(() => {
       window.location.href = 'download.html';
     }, 2500);
