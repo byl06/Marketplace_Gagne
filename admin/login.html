@@ -83,16 +83,6 @@
       color: var(--accent);
       font-weight: 500;
     }
-    .login-box .admin-info {
-      background: var(--panel);
-      padding: 12px 16px;
-      border-radius: var(--radius-s);
-      margin-top: 20px;
-      font-size: 12px;
-      color: var(--ink-soft);
-      text-align: center;
-      border: 1px dashed var(--line);
-    }
   </style>
 </head>
 <body>
@@ -104,19 +94,15 @@
     <form id="loginForm">
       <div class="field">
         <label for="email">📧 Email</label>
-        <input type="email" id="email" required placeholder="" />
+        <input type="email" id="email" required placeholder="admin@gagne.com" />
       </div>
       <div class="field">
         <label for="password">🔑 Mot de passe</label>
-        <input type="password" id="password" required placeholder="" />
+        <input type="password" id="password" required placeholder="••••••••" />
       </div>
       <button type="submit" class="btn gold">Se connecter</button>
       <div class="error" id="loginError">❌ Email ou mot de passe incorrect</div>
     </form>
-
-    <div class="admin-info">
-      🔑 Identifiants : admin@gagne.com / admin123
-    </div>
 
     <div class="back-link">
       <a href="../index.html">← Retour à la boutique</a>
@@ -130,13 +116,27 @@
       const password = document.getElementById('password').value;
       const error = document.getElementById('loginError');
 
-      if (email === 'admin@gagne.com' && password === 'admin123') {
-        localStorage.setItem('gagne:admin', JSON.stringify({ email: 'admin@gagne.com', loggedIn: true }));
-        window.location.href = 'dashboard.html';
-      } else {
+      // Appel au backend pour vérifier les identifiants
+      fetch('https://gagne-backend.onrender.com/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          localStorage.setItem('gagne:admin', JSON.stringify({ email, loggedIn: true }));
+          window.location.href = 'dashboard.html';
+        } else {
+          error.style.display = 'block';
+          setTimeout(() => error.style.display = 'none', 3000);
+        }
+      })
+      .catch(() => {
+        error.textContent = '❌ Erreur de connexion au serveur';
         error.style.display = 'block';
         setTimeout(() => error.style.display = 'none', 3000);
-      }
+      });
     });
   </script>
 </body>

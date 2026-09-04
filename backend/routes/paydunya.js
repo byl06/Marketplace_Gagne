@@ -405,6 +405,36 @@ router.get('/status/:token', async (req, res) => {
 });
 
 // ============================================================
+//  ROUTE: Login Admin
+// ============================================================
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Identifiants stockés dans les variables d'environnement
+    const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@gagne.com';
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      return res.json({ 
+        success: true, 
+        message: 'Connexion réussie' 
+      });
+    } else {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Identifiants incorrects' 
+      });
+    }
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Erreur serveur' 
+    });
+  }
+});
+
+// ============================================================
 //  ROUTE: Récupérer les commandes (Admin)
 // ============================================================
 router.get('/orders', async (req, res) => {
