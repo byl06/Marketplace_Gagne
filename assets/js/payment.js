@@ -1,5 +1,5 @@
 // ============================================================
-//  PAYMENT.JS - Paiements Bénin (Avec idempotence)
+//  PAYMENT.JS - Paiements Bénin (Appel au backend)
 // ============================================================
 
 // URL du backend
@@ -8,13 +8,6 @@ const BACKEND_URL = 'https://gagne-backend.onrender.com';
 let pendingPaymentId = null;
 let selectedMethod = 'mtn';
 let isProcessing = false;
-
-// ============================================================
-//  GÉNÉRATION D'UNE CLÉ D'IDEMPOTENCE
-// ============================================================
-function generateIdempotencyKey() {
-  return 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
 
 // ============================================================
 //  INIT
@@ -147,7 +140,7 @@ function savePurchasedItems(items) {
 }
 
 // ============================================================
-//  HANDLE PAYMENT (Avec idempotence)
+//  HANDLE PAYMENT (Appel au backend)
 // ============================================================
 async function handlePayment() {
   if (isProcessing) return;
@@ -197,9 +190,6 @@ async function handlePayment() {
 
   if (items.length === 0) { showToast('Erreur: aucun article'); return; }
 
-  // Générer une clé d'idempotence
-  const idempotencyKey = generateIdempotencyKey();
-
   const payBtn = document.getElementById('submitPayment');
   isProcessing = true;
   payBtn.disabled = true;
@@ -207,32 +197,19 @@ async function handlePayment() {
 
   try {
     // ============================================================
-    //  APPEL AU BACKEND AVEC IDEMPOTENCE
+    //  APPEL AU BACKEND POUR CRÉER LA TRANSACTION
     // ============================================================
     const response = await fetch(`${BACKEND_URL}/api/paydunya/create`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': idempotencyKey
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         items: items,
         phone: phone,
-        method: selectedMethod,
-        idempotencyKey: idempotencyKey
+        method: selectedMethod
       })
     });
 
     const data = await response.json();
-
-    // Gestion du conflit d'idempotence (409)
-    if (response.status === 409) {
-      showToast('⚠️ Cette transaction a déjà été traitée');
-      payBtn.disabled = false;
-      payBtn.innerHTML = '🔒 Payer maintenant';
-      isProcessing = false;
-      return;
-    }
 
     if (!data.success) {
       throw new Error(data.error || 'Erreur lors de la création du paiement');
@@ -241,7 +218,7 @@ async function handlePayment() {
     // Transaction créée avec succès
     payBtn.innerHTML = '📱 Confirme sur ton téléphone...';
     
-    // Attendre la confirmation
+    // Attendre la confirmation (simulation)
     await new Promise(resolve => setTimeout(resolve, 3000));
     
     // Succès

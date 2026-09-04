@@ -265,22 +265,11 @@ async function loadEbooks() {
     console.error('Erreur chargement ebooks:', e);
   }
   
-  // Seed data si aucun ebook
-  console.log('📚 Chargement des données par défaut');
-  ebooks = [{
-    id: 'seed-alibaba',
-    title: 'Vendre sur Alibaba',
-    tagline: "Importer, revendre et encaisser tes premiers revenus — sans se faire arnaquer.",
-    description: "Le guide complet pour choisir un produit rentable, vérifier un fournisseur, négocier, gérer le transport et la douane, et revendre rapidement sur les bons canaux. Inclut un exemple de calcul de marge et un plan d'action sur 7 jours.",
-    category: 'Import & E-commerce',
-    level: 'Débutant',
-    price: 9.90,
-    pages: 15,
-    color: 'accent',
-    link: '',
-    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=400&fit=crop',
-    createdAt: Date.now() - 100000
-  }];
+  // ============================================================
+  //  SUPPRESSION DU SEED DATA - BASE VIDE
+  // ============================================================
+  console.log('📚 Aucun ebook en base, la boutique est vide');
+  ebooks = [];
   await persist();
 }
 
