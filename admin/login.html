@@ -116,27 +116,14 @@
       const password = document.getElementById('password').value;
       const error = document.getElementById('loginError');
 
-      // Appel au backend pour vérifier les identifiants
-      fetch('https://gagne-backend.onrender.com/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          localStorage.setItem('gagne:admin', JSON.stringify({ email, loggedIn: true }));
-          window.location.href = 'dashboard.html';
-        } else {
-          error.style.display = 'block';
-          setTimeout(() => error.style.display = 'none', 3000);
-        }
-      })
-      .catch(() => {
-        error.textContent = '❌ Erreur de connexion au serveur';
+      // Identifiants cachés dans le code (mais mieux de les mettre dans le backend)
+      if (email === 'admin@gagne.com' && password === 'admin123') {
+        localStorage.setItem('gagne:admin', JSON.stringify({ email: 'admin@gagne.com', loggedIn: true }));
+        window.location.href = 'dashboard.html';
+      } else {
         error.style.display = 'block';
         setTimeout(() => error.style.display = 'none', 3000);
-      });
+      }
     });
   </script>
 </body>
