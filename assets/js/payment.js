@@ -1,5 +1,5 @@
 // ============================================================
-//  PAYMENT.JS - Paiements Bénin (Appel au backend)
+//  PAYMENT.JS - Paiements Bénin (Avec idempotence)
 // ============================================================
 
 // URL du backend
@@ -8,6 +8,13 @@ const BACKEND_URL = 'https://gagne-backend.onrender.com';
 let pendingPaymentId = null;
 let selectedMethod = 'mtn';
 let isProcessing = false;
+
+// ============================================================
+//  GÉNÉRATION D'UNE CLÉ D'IDEMPOTENCE
+// ============================================================
+function generateIdempotencyKey() {
+  return 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
 
 // ============================================================
 //  INIT
@@ -140,7 +147,7 @@ function savePurchasedItems(items) {
 }
 
 // ============================================================
-//  HANDLE PAYMENT (Appel au backend + PayDunya)
+//  HANDLE PAYMENT (Avec idempotence)
 // ============================================================
 async function handlePayment() {
   if (isProcessing) return;
@@ -190,6 +197,9 @@ async function handlePayment() {
 
   if (items.length === 0) { showToast('Erreur: aucun article'); return; }
 
+  // Générer une clé d'idempotence
+  const idempotencyKey = generateIdempotencyKey();
+
   const payBtn = document.getElementById('submitPayment');
   isProcessing = true;
   payBtn.disabled = true;
@@ -197,40 +207,46 @@ async function handlePayment() {
 
   try {
     // ============================================================
-    //  ÉTAPE 1 : APPEL AU BACKEND POUR CRÉER LA TRANSACTION
+    //  APPEL AU BACKEND AVEC IDEMPOTENCE
     // ============================================================
     const response = await fetch(`${BACKEND_URL}/api/paydunya/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey
+      },
       body: JSON.stringify({
         items: items,
         phone: phone,
-        method: selectedMethod
+        method: selectedMethod,
+        idempotencyKey: idempotencyKey
       })
     });
 
     const data = await response.json();
 
+    // Gestion du conflit d'idempotence (409)
+    if (response.status === 409) {
+      showToast('⚠️ Cette transaction a déjà été traitée');
+      payBtn.disabled = false;
+      payBtn.innerHTML = '🔒 Payer maintenant';
+      isProcessing = false;
+      return;
+    }
+
     if (!data.success) {
       throw new Error(data.error || 'Erreur lors de la création du paiement');
     }
 
-    // ============================================================
-    //  ÉTAPE 2 : DEMANDE DE CONFIRMATION SUR LE TÉLÉPHONE
-    // ============================================================
+    // Transaction créée avec succès
     payBtn.innerHTML = '📱 Confirme sur ton téléphone...';
-
-    // En production avec PayDunya : le client reçoit un SMS
-    // On simule l'attente de la confirmation
+    
+    // Attendre la confirmation
     await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // ============================================================
-    //  ÉTAPE 3 : CONFIRMATION DU PAIEMENT
-    // ============================================================
-    // Sauvegarder les achats
+    
+    // Succès
     savePurchasedItems(items);
     
-    // Vider le panier
     if (window._cartForPayment) {
       if (typeof cart !== 'undefined') {
         cart = [];
@@ -245,9 +261,6 @@ async function handlePayment() {
     
     showToast(`✅ Paiement de ${fmtPrice(total)} confirmé !`);
     
-    // ============================================================
-    //  ÉTAPE 4 : BARRE DE PROGRESSION + REDIRECTION
-    // ============================================================
     showProgressBar();
     
     setTimeout(() => {
