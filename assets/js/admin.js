@@ -1,54 +1,67 @@
 // ============================================================
-//  ADMIN.JS - Dashboard Admin (FCFA)
+//  ADMIN.JS - Dashboard Admin (Avec MongoDB + Upload)
 // ============================================================
+
+// URL du backend
+const BACKEND_URL = 'https://gagne-backend.onrender.com';
 
 let ebooks = [];
 let editingId = null;
 let uploadedImageData = null;
 
 // ============================================================
-//  STORAGE
+//  CHARGER LES EBOOKS DEPUIS LE BACKEND
 // ============================================================
-const storage = {
-  get: (key) => {
-    try { const val = localStorage.getItem(key); return val ? { value: val } : null; }
-    catch (_) { return null; }
-  },
-  set: (key, value) => {
-    try { localStorage.setItem(key, value); return Promise.resolve(); }
-    catch (_) { return Promise.reject(); }
-  }
-};
-
 async function loadEbooks() {
   try {
-    const res = await storage.get('gagne:ebooks');
-    if (res && res.value) { 
-      ebooks = JSON.parse(res.value); 
-      console.log('📚 Ebooks chargés:', ebooks.length);
+    const response = await fetch(`${BACKEND_URL}/api/paydunya/ebooks`);
+    if (response.ok) {
+      const data = await response.json();
+      ebooks = data.ebooks || [];
+      console.log('📚 Ebooks chargés depuis le backend:', ebooks.length);
       return;
     }
-  } catch (e) {}
-  ebooks = [{
-    id: 'seed-alibaba',
-    title: 'Vendre sur Alibaba',
-    tagline: "Importer, revendre et encaisser tes premiers revenus — sans se faire arnaquer.",
-    description: "Le guide complet pour choisir un produit rentable, vérifier un fournisseur, négocier, gérer le transport et la douane, et revendre rapidement sur les bons canaux. Inclut un exemple de calcul de marge et un plan d'action sur 7 jours.",
-    category: 'Import & E-commerce',
-    level: 'Débutant',
-    price: 9.90,
-    pages: 15,
-    color: 'accent',
-    link: '',
-    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=400&fit=crop',
-    createdAt: Date.now() - 100000
-  }];
-  await persist();
+  } catch (e) {
+    console.error('Erreur chargement ebooks:', e);
+  }
+  ebooks = [];
 }
 
-async function persist() {
-  try { await storage.set('gagne:ebooks', JSON.stringify(ebooks)); }
-  catch (e) { console.error('Erreur de sauvegarde', e); showToast("Erreur de sauvegarde"); }
+// ============================================================
+//  SAUVEGARDER UN EBOOK SUR LE BACKEND
+// ============================================================
+async function saveEbookToBackend(ebook) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/paydunya/ebooks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ebook })
+    });
+    const data = await response.json();
+    if (data.success) {
+      return data.ebook;
+    }
+    throw new Error(data.error || 'Erreur de sauvegarde');
+  } catch (e) {
+    console.error('Erreur sauvegarde:', e);
+    throw e;
+  }
+}
+
+// ============================================================
+//  SUPPRIMER UN EBOOK SUR LE BACKEND
+// ============================================================
+async function deleteEbookFromBackend(id) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/paydunya/ebooks/${id}`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
+    return data.success;
+  } catch (e) {
+    console.error('Erreur suppression:', e);
+    return false;
+  }
 }
 
 // ============================================================
@@ -86,7 +99,7 @@ function logout() {
 }
 
 // ============================================================
-//  RENDER DASHBOARD (Prix en FCFA)
+//  RENDER DASHBOARD
 // ============================================================
 function renderDashboard() {
   const cats = getCategories().length;
@@ -140,10 +153,14 @@ async function deleteEbook(id) {
   const e = ebooks.find(x => x.id === id);
   if (!e) return;
   if (!confirm(`Supprimer "${e.title}" ?`)) return;
-  ebooks = ebooks.filter(x => x.id !== id);
-  await persist();
-  renderDashboard();
-  showToast('Ebook supprimé');
+  const success = await deleteEbookFromBackend(id);
+  if (success) {
+    ebooks = ebooks.filter(x => x.id !== id);
+    renderDashboard();
+    showToast('Ebook supprimé');
+  } else {
+    showToast('Erreur lors de la suppression');
+  }
 }
 
 // ============================================================
@@ -173,17 +190,14 @@ function setupUpload() {
   
   if (!uploadArea || !fileInput) return;
 
-  // Click to upload
   uploadArea.addEventListener('click', () => fileInput.click());
 
-  // File change
   fileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files[0]) {
       handleFile(e.target.files[0]);
     }
   });
 
-  // Drag and drop
   uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -203,13 +217,11 @@ function setupUpload() {
 }
 
 function handleFile(file) {
-  // Vérifier le type
   if (!file.type.startsWith('image/')) {
     showToast('❌ Veuillez sélectionner une image');
     return;
   }
 
-  // Vérifier la taille (max 5MB)
   if (file.size > 5 * 1024 * 1024) {
     showToast('❌ L\'image ne doit pas dépasser 5MB');
     return;
@@ -247,7 +259,6 @@ function openForm(id) {
   const title = document.getElementById('formModalTitle');
   const submitBtn = document.getElementById('submitModalBtn');
   
-  // Reset upload
   removeImage();
   
   if (id) {
@@ -259,15 +270,12 @@ function openForm(id) {
     document.getElementById('f-tagline').value = e.tagline;
     document.getElementById('f-desc').value = e.description;
     
-    // Si l'image est une URL
-    if (e.image && e.image.startsWith('data:image')) {
+    if (e.image) {
       uploadedImageData = e.image;
       document.getElementById('f-image').value = e.image;
       document.getElementById('previewImage').src = e.image;
       document.getElementById('uploadPreview').style.display = 'block';
       document.getElementById('uploadArea').style.display = 'none';
-    } else if (e.image) {
-      document.getElementById('f-image').value = e.image;
     }
     
     document.getElementById('f-category').value = e.category;
@@ -298,7 +306,6 @@ async function submitForm(ev) {
   
   const selectedSwatch = document.querySelector('#swatches .swatch.selected');
   const priceFCFA = parseFloat(document.getElementById('f-price').value) || 0;
-  // Convertir FCFA en € pour le stockage
   const priceEuro = priceFCFA / 655.96;
   
   const data = {
@@ -314,20 +321,23 @@ async function submitForm(ev) {
     color: selectedSwatch ? selectedSwatch.dataset.color : 'accent'
   };
   
-  if (editingId) {
-    const idx = ebooks.findIndex(x => x.id === editingId);
-    if (idx !== -1) {
-      ebooks[idx] = { ...ebooks[idx], ...data };
+  try {
+    const savedEbook = await saveEbookToBackend(data);
+    if (editingId) {
+      const idx = ebooks.findIndex(x => x.id === editingId);
+      if (idx !== -1) {
+        ebooks[idx] = savedEbook;
+      }
       showToast('✅ Ebook modifié');
+    } else {
+      ebooks.push(savedEbook);
+      showToast('✅ Ebook ajouté !');
     }
-  } else {
-    const newId = 'e-' + Date.now();
-    ebooks.push({ id: newId, createdAt: Date.now(), ...data });
-    showToast('✅ Ebook ajouté !');
+    closeForm();
+    renderDashboard();
+  } catch (error) {
+    showToast('❌ Erreur: ' + error.message);
   }
-  await persist();
-  closeForm();
-  renderDashboard();
 }
 
 // ============================================================
