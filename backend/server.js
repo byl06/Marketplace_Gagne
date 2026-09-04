@@ -57,10 +57,14 @@ app.use(helmet({
         "https://*.googleapis.com", 
         "data:"
       ],
+      // ============================================================
+      //  CORRECTION : AJOUT DE L'URL DU BACKEND
+      // ============================================================
       connectSrc: [
         "'self'", 
         "https://*.paydunya.com", 
-        "https://*.googleapis.com"
+        "https://*.googleapis.com",
+        "https://gagne-backend.onrender.com"
       ],
       frameSrc: ["'self'", "https://*.paydunya.com"],
       objectSrc: ["'none'"],
