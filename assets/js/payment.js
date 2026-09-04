@@ -2,8 +2,8 @@
 //  PAYMENT.JS - Paiements Bénin (Appel au backend)
 // ============================================================
 
-// URL du backend (à changer selon ton hébergement)
-const BACKEND_URL = 'https://gagne-backend.onrender.com'; // À remplacer par ta future URL
+// URL du backend
+const BACKEND_URL = 'https://gagne-backend.onrender.com';
 
 let pendingPaymentId = null;
 let selectedMethod = 'mtn';
@@ -140,7 +140,7 @@ function savePurchasedItems(items) {
 }
 
 // ============================================================
-//  HANDLE PAYMENT (Appel au backend)
+//  HANDLE PAYMENT (Appel au backend + PayDunya)
 // ============================================================
 async function handlePayment() {
   if (isProcessing) return;
@@ -197,7 +197,7 @@ async function handlePayment() {
 
   try {
     // ============================================================
-    //  APPEL AU BACKEND POUR CRÉER LA TRANSACTION
+    //  ÉTAPE 1 : APPEL AU BACKEND POUR CRÉER LA TRANSACTION
     // ============================================================
     const response = await fetch(`${BACKEND_URL}/api/paydunya/create`, {
       method: 'POST',
@@ -215,15 +215,22 @@ async function handlePayment() {
       throw new Error(data.error || 'Erreur lors de la création du paiement');
     }
 
-    // Transaction créée avec succès
+    // ============================================================
+    //  ÉTAPE 2 : DEMANDE DE CONFIRMATION SUR LE TÉLÉPHONE
+    // ============================================================
     payBtn.innerHTML = '📱 Confirme sur ton téléphone...';
-    
-    // Attendre la confirmation (simulation)
+
+    // En production avec PayDunya : le client reçoit un SMS
+    // On simule l'attente de la confirmation
     await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Succès
+
+    // ============================================================
+    //  ÉTAPE 3 : CONFIRMATION DU PAIEMENT
+    // ============================================================
+    // Sauvegarder les achats
     savePurchasedItems(items);
     
+    // Vider le panier
     if (window._cartForPayment) {
       if (typeof cart !== 'undefined') {
         cart = [];
@@ -238,6 +245,9 @@ async function handlePayment() {
     
     showToast(`✅ Paiement de ${fmtPrice(total)} confirmé !`);
     
+    // ============================================================
+    //  ÉTAPE 4 : BARRE DE PROGRESSION + REDIRECTION
+    // ============================================================
     showProgressBar();
     
     setTimeout(() => {
