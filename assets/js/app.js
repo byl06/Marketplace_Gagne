@@ -255,24 +255,36 @@ const storage = {
 
 async function loadEbooks() {
   try {
-    // FORCER LA SUPPRESSION DÉFINITIVE
-    localStorage.removeItem('gagne:ebooks');
-    const res = await storage.get('gagne:ebooks');
-    if (res && res.value) { 
-      ebooks = JSON.parse(res.value); 
-      console.log('📚 Ebooks chargés depuis localStorage:', ebooks.length);
+    // 1. Essayer de charger depuis MongoDB via le backend
+    const response = await fetch('https://gagne-backend.onrender.com/api/paydunya/ebooks');
+    if (response.ok) {
+      const data = await response.json();
+      ebooks = data.ebooks || [];
+      console.log('📚 Ebooks chargés depuis MongoDB:', ebooks.length);
+      
+      // 2. Mettre à jour localStorage pour synchroniser
+      await storage.set('gagne:ebooks', JSON.stringify(ebooks));
       return;
     }
   } catch (e) {
-    console.error('Erreur chargement ebooks:', e);
+    console.error('Erreur chargement depuis MongoDB:', e);
   }
   
-  // ============================================================
-  //  SUPPRESSION DU SEED DATA - BASE VIDE
-  // ============================================================
-  console.log('📚 Aucun ebook en base, la boutique est vide');
+  // 3. Fallback : charger depuis localStorage si MongoDB est inaccessible
+  try {
+    const res = await storage.get('gagne:ebooks');
+    if (res && res.value) {
+      ebooks = JSON.parse(res.value);
+      console.log('📚 Ebooks chargés depuis localStorage (fallback):', ebooks.length);
+      return;
+    }
+  } catch (e) {
+    console.error('Erreur chargement localStorage:', e);
+  }
+  
+  // 4. Si tout est vide
   ebooks = [];
-  await persist();
+  console.log('📚 Aucun ebook trouvé');
 }
 
 async function persist() {

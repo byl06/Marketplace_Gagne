@@ -1,5 +1,5 @@
 // ============================================================
-//  ADMIN.JS - Dashboard Admin (Avec MongoDB + Upload)
+//  ADMIN.JS - Dashboard Admin (Avec MongoDB + Upload + Synchronisation)
 // ============================================================
 
 // URL du backend
@@ -19,11 +19,28 @@ async function loadEbooks() {
       const data = await response.json();
       ebooks = data.ebooks || [];
       console.log('📚 Ebooks chargés depuis le backend:', ebooks.length);
+      
+      // Synchroniser le localStorage pour la boutique
+      try {
+        localStorage.setItem('gagne:ebooks', JSON.stringify(ebooks));
+      } catch(e) {}
+      
       return;
     }
   } catch (e) {
     console.error('Erreur chargement ebooks:', e);
   }
+  
+  // Fallback : charger depuis localStorage
+  try {
+    const localData = localStorage.getItem('gagne:ebooks');
+    if (localData) {
+      ebooks = JSON.parse(localData);
+      console.log('📚 Ebooks chargés depuis localStorage (fallback):', ebooks.length);
+      return;
+    }
+  } catch(e) {}
+  
   ebooks = [];
 }
 
@@ -62,6 +79,23 @@ async function deleteEbookFromBackend(id) {
     console.error('Erreur suppression:', e);
     return false;
   }
+}
+
+// ============================================================
+//  SYNCHRONISER LOCALSTORAGE AVEC MONGODB
+// ============================================================
+async function syncLocalStorage() {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/paydunya/ebooks`);
+    if (response.ok) {
+      const data = await response.json();
+      localStorage.setItem('gagne:ebooks', JSON.stringify(data.ebooks || []));
+      return data.ebooks || [];
+    }
+  } catch(e) {
+    console.error('Erreur synchronisation:', e);
+  }
+  return null;
 }
 
 // ============================================================
@@ -153,13 +187,18 @@ async function deleteEbook(id) {
   const e = ebooks.find(x => x.id === id);
   if (!e) return;
   if (!confirm(`Supprimer "${e.title}" ?`)) return;
+  
   const success = await deleteEbookFromBackend(id);
   if (success) {
     ebooks = ebooks.filter(x => x.id !== id);
     renderDashboard();
-    showToast('Ebook supprimé');
+    
+    // Synchroniser le localStorage
+    await syncLocalStorage();
+    
+    showToast('✅ Ebook supprimé');
   } else {
-    showToast('Erreur lors de la suppression');
+    showToast('❌ Erreur lors de la suppression');
   }
 }
 
@@ -333,6 +372,10 @@ async function submitForm(ev) {
       ebooks.push(savedEbook);
       showToast('✅ Ebook ajouté !');
     }
+    
+    // Synchroniser le localStorage pour la boutique
+    await syncLocalStorage();
+    
     closeForm();
     renderDashboard();
   } catch (error) {
