@@ -3,9 +3,7 @@
 // ============================================================
 
 // URL du backend (à changer selon ton hébergement)
-const BACKEND_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3000'
-  : 'https://gagne-backend.onrender.com'; // À remplacer par ta future URL
+const BACKEND_URL = 'https://gagne-backend.onrender.com'; // À remplacer par ta future URL
 
 let pendingPaymentId = null;
 let selectedMethod = 'mtn';
