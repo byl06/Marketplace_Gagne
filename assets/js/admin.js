@@ -184,6 +184,7 @@ function renderDashboard() {
 //  CRUD
 // ============================================================
 async function deleteEbook(id) {
+  console.log('🗑️ Suppression de l\'ebook avec ID:', id);
   const e = ebooks.find(x => x.id === id);
   if (!e) return;
   if (!confirm(`Supprimer "${e.title}" ?`)) return;

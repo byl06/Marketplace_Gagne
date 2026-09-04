@@ -123,11 +123,12 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Rate limiting spécifique pour les paiements (plus strict)
+// Rate limiting spécifique pour les paiements (plus strict)
 const paymentLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
-  max: 5, // 5 tentatives par heure
+  max: 100, // 100 tentatives par heure (au lieu de 5)
   message: {
-    error: 'Trop de tentatives de paiement, veuillez réessayer dans 1 heure.'
+    error: 'Trop de tentatives, veuillez réessayer dans 1 heure.'
   },
   standardHeaders: true,
   legacyHeaders: false,
