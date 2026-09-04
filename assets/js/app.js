@@ -255,6 +255,8 @@ const storage = {
 
 async function loadEbooks() {
   try {
+    // FORCER LA SUPPRESSION DÉFINITIVE
+    localStorage.removeItem('gagne:ebooks');
     const res = await storage.get('gagne:ebooks');
     if (res && res.value) { 
       ebooks = JSON.parse(res.value); 
