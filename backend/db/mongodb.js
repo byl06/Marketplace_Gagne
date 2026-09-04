@@ -28,7 +28,6 @@ async function connectDB() {
     db = client.db(DB_NAME);
     console.log('✅ Connecté à MongoDB Atlas');
 
-    // Créer les index
     await createIndexes(db);
     
     return db;

@@ -24,15 +24,49 @@ connectDB().catch(console.error);
 //  MIDDLEWARES DE SÉCURITÉ
 // ============================================================
 
-// 1. Helmet : Sécurise les headers HTTP
+// 1. Helmet : Sécurise les headers HTTP (CSP corrigé)
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
+      scriptSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "'unsafe-eval'", 
+        "https://*.paydunya.com", 
+        "https://*.googleapis.com", 
+        "https://*.gstatic.com"
+      ],
+      styleSrc: [
+        "'self'", 
+        "'unsafe-inline'", 
+        "https://*.googleapis.com", 
+        "https://*.gstatic.com"
+      ],
+      imgSrc: [
+        "'self'", 
+        "data:", 
+        "https:", 
+        "http:", 
+        "https://*.unsplash.com", 
+        "https://*.paydunya.com"
+      ],
+      fontSrc: [
+        "'self'", 
+        "https://*.gstatic.com", 
+        "https://*.googleapis.com", 
+        "data:"
+      ],
+      connectSrc: [
+        "'self'", 
+        "https://*.paydunya.com", 
+        "https://*.googleapis.com"
+      ],
+      frameSrc: ["'self'", "https://*.paydunya.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
+    }
   },
   crossOriginEmbedderPolicy: true,
   crossOriginOpenerPolicy: true,
@@ -51,6 +85,7 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:3001',
   'https://gagne.netlify.app',
+  'https://gagne-guidestore.netlify.app',
   'https://gagne.bj',
   process.env.CLIENT_URL
 ].filter(Boolean);
