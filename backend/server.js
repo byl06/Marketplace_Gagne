@@ -1,5 +1,5 @@
 // ============================================================
-//  SERVER.JS - Backend GAGNE (Sécurisé)
+//  SERVER.JS - Backend GAGNE (Sécurisé + MongoDB)
 // ============================================================
 
 const express = require('express');
@@ -7,12 +7,18 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { connectDB, closeDB } = require('./db/mongodb');
 
 // Charger les variables d'environnement
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ============================================================
+//  CONNEXION MONGODB
+// ============================================================
+connectDB().catch(console.error);
 
 // ============================================================
 //  MIDDLEWARES DE SÉCURITÉ
@@ -104,11 +110,12 @@ app.use((req, res, next) => {
 //  ROUTES
 // ============================================================
 
-// Route de test
+// Route de test (avec statut MongoDB)
 app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     message: 'Serveur GAGNE en ligne !',
+    database: process.env.MONGODB_URI ? 'MongoDB connecté' : 'MongoDB non configuré',
     timestamp: new Date().toISOString()
   });
 });
@@ -136,15 +143,33 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
+//  ARRÊT GRACIEUX
+// ============================================================
+process.on('SIGINT', async () => {
+  console.log('🔄 Arrêt du serveur...');
+  await closeDB();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('🔄 Arrêt du serveur...');
+  await closeDB();
+  process.exit(0);
+});
+
+// ============================================================
 //  DÉMARRAGE
 // ============================================================
 app.listen(PORT, () => {
   console.log('========================================');
-  console.log('🛡️  GAGNE Backend (Sécurisé)');
+  console.log('🛡️  GAGNE Backend (Sécurisé + MongoDB)');
   console.log(`📍 URL: http://localhost:${PORT}`);
   console.log(`📡 IPN: http://localhost:${PORT}/api/paydunya/ipn`);
   console.log(`🔧 Mode: ${process.env.PAYDUNYA_MODE || 'sandbox'}`);
+  console.log(`🗄️  Base de données: ${process.env.DB_NAME || 'gagne'}`);
   console.log(`🔒 Rate limiting: Actif`);
   console.log(`🛡️  Helmet: Actif`);
   console.log('========================================');
 });
+
+module.exports = app;

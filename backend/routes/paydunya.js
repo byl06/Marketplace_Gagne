@@ -1,12 +1,12 @@
 // ============================================================
-//  PAYDUNYA ROUTES - Gestion des paiements (Sécurisé)
+//  PAYDUNYA ROUTES - Gestion des paiements (MongoDB)
 // ============================================================
 
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const { getCollection } = require('../db/mongodb');
+const { ObjectId } = require('mongodb');
 const { v4: uuidv4 } = require('uuid');
 
 // ============================================================
@@ -20,16 +20,10 @@ const PAYDUNYA_CONFIG = {
   mode: process.env.PAYDUNYA_MODE || 'sandbox'
 };
 
-// Vérification que les clés sont présentes
-if (!PAYDUNYA_CONFIG.masterKey || PAYDUNYA_CONFIG.masterKey === 'test') {
-  console.warn('⚠️ ATTENTION: Les clés PayDunya ne sont pas configurées!');
-}
-
 const PAYDUNYA_URL = PAYDUNYA_CONFIG.mode === 'live'
   ? 'https://paydunya.com/api/v1'
   : 'https://sandbox.paydunya.com/api/v1';
 
-// Taux de change
 const CURRENCY_RATE = 655.96;
 
 function convertToFCFA(euro) {
@@ -37,41 +31,84 @@ function convertToFCFA(euro) {
 }
 
 // ============================================================
-//  STOCKAGE DES TRANSACTIONS (pour idempotence)
+//  ROUTES EBOOKS (CRUD avec MongoDB)
 // ============================================================
-const transactionsPath = path.join(__dirname, '../transactions.json');
 
-function getTransactions() {
+// GET : Récupérer tous les ebooks
+router.get('/ebooks', async (req, res) => {
   try {
-    if (fs.existsSync(transactionsPath)) {
-      return JSON.parse(fs.readFileSync(transactionsPath, 'utf8'));
-    }
-  } catch(e) {}
-  return {};
-}
-
-function saveTransaction(idempotencyKey, data) {
-  try {
-    const transactions = getTransactions();
-    transactions[idempotencyKey] = {
-      ...data,
-      timestamp: new Date().toISOString()
-    };
-    fs.writeFileSync(transactionsPath, JSON.stringify(transactions, null, 2));
-  } catch(e) {
-    console.error('Erreur sauvegarde transaction:', e);
+    const collection = await getCollection('ebooks');
+    const ebooks = await collection.find().sort({ createdAt: -1 }).toArray();
+    res.json({ ebooks });
+  } catch (error) {
+    console.error('❌ Erreur récupération ebooks:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
-}
+});
+
+// POST : Ajouter ou modifier un ebook
+router.post('/ebooks', async (req, res) => {
+  try {
+    const { ebook } = req.body;
+    if (!ebook) {
+      return res.status(400).json({ error: 'Ebook requis' });
+    }
+
+    const collection = await getCollection('ebooks');
+
+    if (ebook.id) {
+      // Modifier un ebook existant
+      const result = await collection.updateOne(
+        { id: ebook.id },
+        { $set: { ...ebook, updatedAt: new Date().toISOString() } },
+        { upsert: true }
+      );
+      return res.json({ success: true, ebook, modified: result.modifiedCount });
+    } else {
+      // Nouvel ebook
+      const newEbook = {
+        ...ebook,
+        id: 'e-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await collection.insertOne(newEbook);
+      return res.json({ success: true, ebook: newEbook });
+    }
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde ebook:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// DELETE : Supprimer un ebook
+router.delete('/ebooks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const collection = await getCollection('ebooks');
+    const result = await collection.deleteOne({ id: id });
+    
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: 'Ebook non trouvé' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Erreur suppression ebook:', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 
 // ============================================================
-//  ROUTE: Créer une transaction (avec idempotence)
+//  ROUTE: Créer une transaction
 // ============================================================
 router.post('/create', async (req, res) => {
   try {
-    // ============================================================
-    //  1. VALIDATION DES DONNÉES (côté serveur)
-    // ============================================================
     const { items, phone, method, idempotencyKey } = req.body;
+
+    // ============================================================
+    //  1. VALIDATION DES DONNÉES
+    // ============================================================
 
     // Vérifier l'idempotence
     if (!idempotencyKey) {
@@ -81,14 +118,15 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    // Vérifier si la transaction a déjà été traitée
-    const transactions = getTransactions();
-    if (transactions[idempotencyKey]) {
+    // Vérifier si la transaction existe déjà
+    const transactionsCollection = await getCollection('transactions');
+    const existing = await transactionsCollection.findOne({ idempotencyKey });
+    if (existing) {
       console.log(`🔄 Transaction déjà traitée: ${idempotencyKey}`);
       return res.status(409).json({
         success: false,
         error: 'Transaction déjà traitée',
-        existing: transactions[idempotencyKey]
+        existing
       });
     }
 
@@ -196,14 +234,16 @@ router.post('/create', async (req, res) => {
     //  6. TRAITEMENT DE LA RÉPONSE
     // ============================================================
     if (response.data && response.data.response_code === '00') {
-      // Sauvegarder la transaction
-      saveTransaction(idempotencyKey, {
-        status: 'pending',
+      // Sauvegarder la transaction dans MongoDB
+      await transactionsCollection.insertOne({
+        idempotencyKey,
         transaction_id: response.data.token,
+        status: 'pending',
         amount: totalFCFA,
         items: items,
         phone: phone,
-        method: method
+        method: method,
+        createdAt: new Date().toISOString()
       });
 
       return res.json({
@@ -214,10 +254,12 @@ router.post('/create', async (req, res) => {
       });
     } else {
       // Sauvegarder l'échec
-      saveTransaction(idempotencyKey, {
+      await transactionsCollection.insertOne({
+        idempotencyKey,
         status: 'failed',
         error: response.data.response_text || 'Erreur inconnue',
-        amount: totalFCFA
+        amount: totalFCFA,
+        createdAt: new Date().toISOString()
       });
 
       return res.status(400).json({
@@ -238,7 +280,8 @@ router.post('/create', async (req, res) => {
 });
 
 // ============================================================
-//  ROUTE: IPN (avec vérification signature)
+//  ROUTE: IPN - Instant Payment Notification
+//  URL: https://gagne-backend.onrender.com/api/paydunya/ipn
 // ============================================================
 router.post('/ipn', async (req, res) => {
   console.log('🔄 IPN reçu');
@@ -246,15 +289,11 @@ router.post('/ipn', async (req, res) => {
   console.log('📋 Headers:', req.headers);
 
   try {
-    // ============================================================
-    //  VÉRIFICATION DE LA SIGNATURE (optionnel mais recommandé)
-    // ============================================================
-    const signature = req.headers['paydunya-signature'];
-    // TODO: Vérifier la signature avec la clé privée
-    
     const { status, transaction_id, custom_data, amount, token } = req.body;
 
-    // Vérifier le statut
+    // ============================================================
+    //  VÉRIFICATION CÔTÉ SERVEUR
+    // ============================================================
     if (status === 'completed') {
       console.log(`✅ Paiement confirmé - Transaction: ${transaction_id}`);
       console.log(`📦 Articles: ${JSON.stringify(custom_data?.items)}`);
@@ -262,7 +301,7 @@ router.post('/ipn', async (req, res) => {
       console.log(`💰 Montant: ${amount} FCFA`);
 
       // ============================================================
-      //  VÉRIFICATION CÔTÉ SERVEUR : Vérifier la transaction sur PayDunya
+      //  VÉRIFIER LA TRANSACTION SUR PAYDUNYA
       // ============================================================
       try {
         const verifyResponse = await axios.get(`${PAYDUNYA_URL}/checkout-invoice/status/${token || transaction_id}`, {
@@ -289,17 +328,10 @@ router.post('/ipn', async (req, res) => {
       }
 
       // ============================================================
-      //  SAUVEGARDE DE LA COMMANDE
+      //  SAUVEGARDE DE LA COMMANDE DANS MONGODB
       // ============================================================
-      const ordersPath = path.join(__dirname, '../orders.json');
-      let orders = [];
-      try {
-        if (fs.existsSync(ordersPath)) {
-          orders = JSON.parse(fs.readFileSync(ordersPath, 'utf8'));
-        }
-      } catch(e) {}
-
-      orders.push({
+      const ordersCollection = await getCollection('orders');
+      await ordersCollection.insertOne({
         transaction_id,
         token: token || transaction_id,
         items: custom_data?.items || [],
@@ -311,14 +343,19 @@ router.post('/ipn', async (req, res) => {
         date: new Date().toISOString()
       });
 
-      fs.writeFileSync(ordersPath, JSON.stringify(orders, null, 2));
-
-      // Mettre à jour la transaction
-      const transactions = getTransactions();
-      if (custom_data?.idempotencyKey && transactions[custom_data.idempotencyKey]) {
-        transactions[custom_data.idempotencyKey].status = 'completed';
-        transactions[custom_data.idempotencyKey].transaction_id = transaction_id;
-        fs.writeFileSync(transactionsPath, JSON.stringify(transactions, null, 2));
+      // ============================================================
+      //  METTRE À JOUR LA TRANSACTION
+      // ============================================================
+      const transactionsCollection = await getCollection('transactions');
+      if (custom_data?.idempotencyKey) {
+        await transactionsCollection.updateOne(
+          { idempotencyKey: custom_data.idempotencyKey },
+          { $set: { 
+            status: 'completed', 
+            transaction_id: transaction_id,
+            completedAt: new Date().toISOString()
+          }}
+        );
       }
 
       return res.status(200).json({ 
@@ -372,17 +409,11 @@ router.get('/status/:token', async (req, res) => {
 // ============================================================
 router.get('/orders', async (req, res) => {
   try {
-    const ordersPath = path.join(__dirname, '../orders.json');
-    let orders = [];
-    try {
-      if (fs.existsSync(ordersPath)) {
-        orders = JSON.parse(fs.readFileSync(ordersPath, 'utf8'));
-      }
-    } catch(e) {}
-
+    const ordersCollection = await getCollection('orders');
+    const orders = await ordersCollection.find().sort({ date: -1 }).limit(100).toArray();
     return res.json({ orders });
-
   } catch (error) {
+    console.error('❌ Erreur récupération commandes:', error);
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
