@@ -38,4 +38,4 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self' 'unsafe-inline' https://*.paydunya.com;"
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline' https://*.paydunya.com https://gagne-backend.onrender.com; connect-src 'self' https://*.paydunya.com https://gagne-backend.onrender.com;"
