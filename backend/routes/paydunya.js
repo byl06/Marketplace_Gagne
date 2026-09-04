@@ -4,11 +4,14 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
+// ============================================================
+//  CONFIGURATION PAYDUNYA (depuis les variables d'environnement)
+// ============================================================
 const PAYDUNYA_CONFIG = {
-  masterKey: process.env.PAYDUNYA_MASTER_KEY || 'test',
-  publicKey: process.env.PAYDUNYA_PUBLIC_KEY || 'test',
-  privateKey: process.env.PAYDUNYA_PRIVATE_KEY || 'test',
-  token: process.env.PAYDUNYA_TOKEN || 'test',
+  masterKey: process.env.PAYDUNYA_MASTER_KEY,
+  publicKey: process.env.PAYDUNYA_PUBLIC_KEY,
+  privateKey: process.env.PAYDUNYA_PRIVATE_KEY,
+  token: process.env.PAYDUNYA_TOKEN,
   mode: process.env.PAYDUNYA_MODE || 'sandbox'
 };
 
@@ -24,7 +27,7 @@ function convertToFCFA(euro) {
 }
 
 // ============================================================
-//  ROUTE : Créer une transaction
+//  ROUTE : Créer une transaction (VRAI APPEL PAYDUNYA)
 // ============================================================
 router.post('/create', async (req, res) => {
   try {
@@ -61,7 +64,7 @@ router.post('/create', async (req, res) => {
     console.log('📦 Envoi à PayDunya:', JSON.stringify(payload, null, 2));
 
     // ============================================================
-    //  APPEL À L'API PAYDUNYA
+    //  APPEL À L'API PAYDUNYA (le vrai, pas la simulation)
     // ============================================================
     const response = await axios.post(`${PAYDUNYA_URL}/checkout-invoice/create`, payload, {
       headers: {
@@ -75,7 +78,9 @@ router.post('/create', async (req, res) => {
 
     console.log('📦 Réponse PayDunya:', response.data);
 
+    // Vérifier la réponse
     if (response.data && response.data.response_code === '00') {
+      // Transaction créée avec succès
       return res.json({
         success: true,
         invoice: response.data,
@@ -83,6 +88,7 @@ router.post('/create', async (req, res) => {
       });
     } else {
       return res.status(400).json({
+        success: false,
         error: response.data.response_text || 'Erreur lors de la création',
         details: response.data
       });
@@ -91,6 +97,7 @@ router.post('/create', async (req, res) => {
   } catch (error) {
     console.error('❌ Erreur PayDunya:', error.response?.data || error.message);
     return res.status(500).json({
+      success: false,
       error: 'Erreur serveur',
       details: error.response?.data || error.message
     });
@@ -99,7 +106,6 @@ router.post('/create', async (req, res) => {
 
 // ============================================================
 //  ROUTE : IPN - Instant Payment Notification
-//  URL : https://gagne-backend.onrender.com/api/paydunya/ipn
 // ============================================================
 router.post('/ipn', async (req, res) => {
   console.log('🔄 IPN reçu');
