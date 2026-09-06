@@ -142,6 +142,9 @@ function savePurchasedItems(items) {
 // ============================================================
 //  HANDLE PAYMENT (Appel au backend)
 // ============================================================
+// ============================================================
+//  HANDLE PAYMENT (Appel au backend)
+// ============================================================
 async function handlePayment() {
   if (isProcessing) return;
   
@@ -190,6 +193,11 @@ async function handlePayment() {
 
   if (items.length === 0) { showToast('Erreur: aucun article'); return; }
 
+  // ============================================================
+  //  GÉNÉRER UNE CLÉ D'IDEMPOTENCE
+  // ============================================================
+  const idempotencyKey = 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
   const payBtn = document.getElementById('submitPayment');
   isProcessing = true;
   payBtn.disabled = true;
@@ -197,15 +205,19 @@ async function handlePayment() {
 
   try {
     // ============================================================
-    //  APPEL AU BACKEND POUR CRÉER LA TRANSACTION
+    //  APPEL AU BACKEND AVEC CLÉ D'IDEMPOTENCE
     // ============================================================
     const response = await fetch(`${BACKEND_URL}/api/paydunya/create`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey  // ← AJOUT ICI
+      },
       body: JSON.stringify({
         items: items,
         phone: phone,
-        method: selectedMethod
+        method: selectedMethod,
+        idempotencyKey: idempotencyKey        // ← AJOUT ICI AUSSI
       })
     });
 
