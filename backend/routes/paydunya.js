@@ -1,25 +1,37 @@
+// ============================================================
+//  PAYDUNYA ROUTES - SDK OFFICIEL
+// ============================================================
+
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
+const paydunya = require('paydunya');
 const { getCollection } = require('../db/mongodb');
 
 // ============================================================
-//  CONFIGURATION PAYDUNYA - VERSION FINALE
+//  CONFIGURATION PAYDUNYA - SDK OFFICIEL
 // ============================================================
-const PAYDUNYA_CONFIG = {
+const setup = new paydunya.Setup({
   masterKey: process.env.PAYDUNYA_MASTER_KEY,
-  publicKey: process.env.PAYDUNYA_PUBLIC_KEY,
   privateKey: process.env.PAYDUNYA_PRIVATE_KEY,
+  publicKey: process.env.PAYDUNYA_PUBLIC_KEY,
   token: process.env.PAYDUNYA_TOKEN,
-  mode: process.env.PAYDUNYA_MODE || 'sandbox'
-};
+  mode: process.env.PAYDUNYA_MODE || 'test'  // 'test' ou 'live'
+});
 
-// ============================================================
-//  URL UNIQUE - paydunya.com POUR TOUS LES MODES
-// ============================================================
-const PAYDUNYA_URL = 'https://paydunya.com/api/v1';
+// Configuration du magasin/boutique
+const store = new paydunya.Store({
+  name: 'GAGNE',
+  tagline: 'Des guides qui rapportent',
+  phoneNumber: '0151000000',
+  websiteURL: process.env.CLIENT_URL || 'https://gagne-guidestore.netlify.app',
+  logoURL: 'https://gagne-guidestore.netlify.app/assets/images/logo.png',
+  returnURL: process.env.CLIENT_URL || 'https://gagne-guidestore.netlify.app',
+  cancelURL: process.env.CLIENT_URL || 'https://gagne-guidestore.netlify.app/',
+  callbackURL: 'https://gagne-backend.onrender.com/api/paydunya/ipn'
+});
 
-console.log('🔗 PayDunya URL:', PAYDUNYA_URL);
+console.log('🔗 PayDunya SDK configuré');
+console.log(`🔧 Mode: ${setup.mode || 'test'}`);
 
 // ============================================================
 //  ROUTE: Créer une transaction
@@ -32,74 +44,69 @@ router.post('/create', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Aucun article' });
     }
 
+    // Calcul du total en FCFA
     const totalEuro = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
     const totalFCFA = Math.round(totalEuro * 655.96);
 
-    const methodMap = {
-      'mtn': 'MTN_MONEY',
-      'moov': 'MOOV_MONEY',
-      'celtiis': 'CELTIIS'
-    };
+    // Création de la facture
+    const invoice = new paydunya.CheckoutInvoice(setup, store);
 
-    const payload = {
-      amount: totalFCFA,
-      currency: 'XOF',
-      description: items.length > 1 ? `Achat de ${items.length} guides` : `Achat de "${items[0].title}"`,
-      callback_url: process.env.CLIENT_URL || 'https://gagne-guidestore.netlify.app/',
-      cancel_url: process.env.CLIENT_URL || 'https://gagne-guidestore.netlify.app/',
-      payment_method: methodMap[method] || 'MTN_MONEY',
-      custom_data: {
-        idempotencyKey,
-        items: items.map(i => ({ id: i.id, title: i.title, qty: i.qty || 1, price: i.price })),
-        phone,
-        method
-      }
-    };
-
-    console.log('📦 Envoi à PayDunya:', JSON.stringify(payload, null, 2));
-
-    const response = await axios.post(`${PAYDUNYA_URL}/checkout-invoice/create`, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'PAYDUNYA-MASTER-KEY': PAYDUNYA_CONFIG.masterKey,
-        'PAYDUNYA-PUBLIC-KEY': PAYDUNYA_CONFIG.publicKey,
-        'PAYDUNYA-PRIVATE-KEY': PAYDUNYA_CONFIG.privateKey,
-        'PAYDUNYA-TOKEN': PAYDUNYA_CONFIG.token
-      },
-      timeout: 30000
+    // Ajout des articles
+    items.forEach(item => {
+      const priceFCFA = Math.round(item.price * 655.96);
+      invoice.addItem(
+        item.title,
+        item.qty || 1,
+        priceFCFA,
+        priceFCFA * (item.qty || 1),
+        item.description || ''
+      );
     });
 
-    console.log('📦 Réponse PayDunya:', response.data);
+    // Montant total
+    invoice.totalAmount = totalFCFA;
 
-    if (response.data && response.data.response_code === '00') {
-      const transactionsCollection = await getCollection('transactions');
-      await transactionsCollection.insertOne({
-        idempotencyKey,
-        transaction_id: response.data.token,
-        status: 'pending',
-        amount: totalFCFA,
-        items,
-        phone,
-        method,
-        createdAt: new Date().toISOString()
-      });
+    // Description
+    invoice.description = items.length > 1 
+      ? `Achat de ${items.length} guides sur GAGNE` 
+      : `Achat de "${items[0].title}"`;
 
-      return res.json({
-        success: true,
-        token: response.data.token,
-        invoice: response.data
-      });
-    } else {
-      return res.status(400).json({
-        success: false,
-        error: response.data.response_text || 'Erreur PayDunya'
-      });
-    }
+    // Données personnalisées
+    invoice.addCustomData('idempotencyKey', idempotencyKey);
+    invoice.addCustomData('items', items);
+    invoice.addCustomData('phone', phone);
+    invoice.addCustomData('method', method);
+
+    // Création de la facture
+    await invoice.create();
+
+    console.log('✅ Facture créée avec succès');
+    console.log('📦 Token:', invoice.token);
+    console.log('🔗 URL:', invoice.url);
+
+    // Sauvegarder la transaction
+    const transactionsCollection = await getCollection('transactions');
+    await transactionsCollection.insertOne({
+      idempotencyKey,
+      transaction_id: invoice.token,
+      status: 'pending',
+      amount: totalFCFA,
+      items,
+      phone,
+      method,
+      url: invoice.url,
+      createdAt: new Date().toISOString()
+    });
+
+    return res.json({
+      success: true,
+      token: invoice.token,
+      url: invoice.url,
+      invoice: invoice
+    });
+
   } catch (error) {
-    console.error('❌ Erreur PayDunya:', error.message);
-    if (error.response) {
-      console.error('📦 Détails:', error.response.data);
-    }
+    console.error('❌ Erreur PayDunya:', error);
     return res.status(500).json({
       success: false,
       error: error.message || 'Erreur serveur'
@@ -108,17 +115,98 @@ router.post('/create', async (req, res) => {
 });
 
 // ============================================================
-//  ROUTE: IPN
+//  ROUTE: IPN (Callback)
 // ============================================================
 router.post('/ipn', async (req, res) => {
   console.log('🔄 IPN reçu');
   console.log('📦 Body:', req.body);
-  res.status(200).json({ success: true });
+
+  try {
+    // Récupérer les données de l'IPN
+    const data = req.body.data;
+
+    if (!data) {
+      console.log('❌ Aucune donnée IPN');
+      return res.status(200).json({ success: false });
+    }
+
+    const status = data.status;
+    const invoiceData = data.invoice;
+    const customData = data.custom_data;
+    const customer = data.customer;
+
+    console.log(`📊 Statut: ${status}`);
+    console.log(`📦 Token: ${invoiceData?.token}`);
+    console.log(`👤 Client: ${customer?.name || 'Inconnu'}`);
+
+    if (status === 'completed') {
+      console.log('✅ Paiement confirmé !');
+
+      // Sauvegarder la commande
+      const ordersCollection = await getCollection('orders');
+      await ordersCollection.insertOne({
+        transaction_id: invoiceData?.token,
+        status: 'completed',
+        amount: invoiceData?.total_amount,
+        items: customData?.items || [],
+        phone: customData?.phone,
+        method: customData?.method,
+        customer: customer,
+        receipt_url: data.receipt_url,
+        date: new Date().toISOString()
+      });
+
+      // Mettre à jour la transaction
+      const transactionsCollection = await getCollection('transactions');
+      if (customData?.idempotencyKey) {
+        await transactionsCollection.updateOne(
+          { idempotencyKey: customData.idempotencyKey },
+          { $set: { 
+            status: 'completed', 
+            transaction_id: invoiceData?.token,
+            completedAt: new Date().toISOString()
+          }}
+        );
+      }
+
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(200).json({ success: true });
+
+  } catch (error) {
+    console.error('❌ Erreur IPN:', error);
+    return res.status(200).json({ success: false });
+  }
 });
 
 // ============================================================
-//  ROUTE: Récupérer les ebooks
+//  ROUTE: Vérifier le statut d'une transaction
 // ============================================================
+router.get('/status/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const invoice = new paydunya.CheckoutInvoice(setup, store);
+    await invoice.confirm(token);
+
+    return res.json({
+      status: invoice.status,
+      customer: invoice.customer,
+      receiptURL: invoice.receiptURL,
+      responseText: invoice.responseText
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur statut:', error);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ============================================================
+//  ROUTES: Ebooks (CRUD)
+// ============================================================
+
+// GET : Récupérer tous les ebooks
 router.get('/ebooks', async (req, res) => {
   try {
     const collection = await getCollection('ebooks');
@@ -130,9 +218,7 @@ router.get('/ebooks', async (req, res) => {
   }
 });
 
-// ============================================================
-//  ROUTE: Ajouter/Modifier un ebook
-// ============================================================
+// POST : Ajouter ou modifier un ebook
 router.post('/ebooks', async (req, res) => {
   try {
     const { ebook } = req.body;
@@ -163,9 +249,7 @@ router.post('/ebooks', async (req, res) => {
   }
 });
 
-// ============================================================
-//  ROUTE: Supprimer un ebook
-// ============================================================
+// DELETE : Supprimer un ebook
 router.delete('/ebooks/:id', async (req, res) => {
   try {
     const { id } = req.params;
