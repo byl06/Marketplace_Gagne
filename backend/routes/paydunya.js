@@ -1,14 +1,10 @@
-// ============================================================
-//  PAYDUNYA ROUTES - SOLUTION FINALE (copie-colle)
-// ============================================================
-
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { getCollection } = require('../db/mongodb');
 
 // ============================================================
-//  CONFIGURATION PAYDUNYA - UNE SEULE URL POUR TOUT
+//  CONFIGURATION PAYDUNYA - VERSION FINALE
 // ============================================================
 const PAYDUNYA_CONFIG = {
   masterKey: process.env.PAYDUNYA_MASTER_KEY,
@@ -19,14 +15,11 @@ const PAYDUNYA_CONFIG = {
 };
 
 // ============================================================
-//  UNE SEULE URL : paydunya.com
-//  Le mode est géré par les clés, pas par l'URL
+//  URL UNIQUE - paydunya.com POUR TOUS LES MODES
 // ============================================================
 const PAYDUNYA_URL = 'https://paydunya.com/api/v1';
 
-console.log(`🔗 URL PayDunya: ${PAYDUNYA_URL}`);
-console.log(`🔧 Mode: ${PAYDUNYA_CONFIG.mode}`);
-console.log(`🔑 Master Key présente: ${PAYDUNYA_CONFIG.masterKey ? '✅' : '❌'}`);
+console.log('🔗 PayDunya URL:', PAYDUNYA_URL);
 
 // ============================================================
 //  ROUTE: Créer une transaction
@@ -65,9 +58,6 @@ router.post('/create', async (req, res) => {
 
     console.log('📦 Envoi à PayDunya:', JSON.stringify(payload, null, 2));
 
-    // ============================================================
-    //  APPEL À paydunya.com AVEC LES CLÉS
-    // ============================================================
     const response = await axios.post(`${PAYDUNYA_URL}/checkout-invoice/create`, payload, {
       headers: {
         'Content-Type': 'application/json',
