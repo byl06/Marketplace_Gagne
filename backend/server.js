@@ -1,7 +1,8 @@
 // ============================================================
 //  SERVER.JS - Backend GAGNE (Sécurisé + MongoDB)
 // ============================================================
-
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -137,7 +138,8 @@ const paymentLimiter = rateLimit({
 // 4. Body parser
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
+// Pour les logs
+app.set('trust proxy', true);
 // ============================================================
 //  LOGGING DE SÉCURITÉ
 // ============================================================

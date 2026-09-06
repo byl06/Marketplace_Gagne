@@ -20,9 +20,7 @@ const PAYDUNYA_CONFIG = {
   mode: process.env.PAYDUNYA_MODE || 'sandbox'
 };
 
-const PAYDUNYA_URL = PAYDUNYA_CONFIG.mode === 'live'
-  ? 'https://paydunya.com/api/v1'
-  : 'https://sandbox.paydunya.com/api/v1';
+const PAYDUNYA_URL = 'https://paydunya.com/api/v1';
 
 const CURRENCY_RATE = 655.96;
 
