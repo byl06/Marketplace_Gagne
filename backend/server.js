@@ -139,7 +139,7 @@ const paymentLimiter = rateLimit({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Pour les logs
-app.set('trust proxy', true);
+app.set('trust proxy', false);
 // ============================================================
 //  LOGGING DE SÉCURITÉ
 // ============================================================
