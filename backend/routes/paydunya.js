@@ -2,14 +2,15 @@
 //  PAYDUNYA ROUTES - SOLUTION FINALE
 // ============================================================
 
+// ============================================================
+//  PAYDUNYA ROUTES - SOLUTION FINALE
+// ============================================================
+
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const { getCollection } = require('../db/mongodb');
 
-// ============================================================
-//  CONFIGURATION PAYDUNYA
-// ============================================================
 // ============================================================
 //  CONFIGURATION PAYDUNYA
 // ============================================================
@@ -22,14 +23,14 @@ const PAYDUNYA_CONFIG = {
 };
 
 // ============================================================
-//  URL PAYDUNYA - CHOIX SELON LE MODE
+//  URL UNIQUE - paydunya.com POUR TOUT
+//  Le mode est géré par les clés (test_ vs live_)
 // ============================================================
-const PAYDUNYA_URL = PAYDUNYA_CONFIG.mode === 'live'
-  ? 'https://paydunya.com/api/v1'
-  : 'https://sandbox.paydunya.com/api/v1';
+const PAYDUNYA_URL = 'https://paydunya.com/api/v1';
 
 console.log(`🔗 PayDunya URL: ${PAYDUNYA_URL}`);
 console.log(`🔧 Mode: ${PAYDUNYA_CONFIG.mode}`);
+console.log(`🔑 Clé présente: ${PAYDUNYA_CONFIG.masterKey ? '✅' : '❌'}`);
 // ============================================================
 //  ROUTE: Créer une transaction
 // ============================================================
