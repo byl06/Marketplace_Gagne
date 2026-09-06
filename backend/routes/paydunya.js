@@ -1,9 +1,5 @@
 // ============================================================
-//  PAYDUNYA ROUTES - SOLUTION FINALE
-// ============================================================
-
-// ============================================================
-//  PAYDUNYA ROUTES - SOLUTION FINALE
+//  PAYDUNYA ROUTES - SOLUTION FINALE (copie-colle)
 // ============================================================
 
 const express = require('express');
@@ -12,7 +8,7 @@ const axios = require('axios');
 const { getCollection } = require('../db/mongodb');
 
 // ============================================================
-//  CONFIGURATION PAYDUNYA
+//  CONFIGURATION PAYDUNYA - UNE SEULE URL POUR TOUT
 // ============================================================
 const PAYDUNYA_CONFIG = {
   masterKey: process.env.PAYDUNYA_MASTER_KEY,
@@ -23,14 +19,15 @@ const PAYDUNYA_CONFIG = {
 };
 
 // ============================================================
-//  URL UNIQUE - paydunya.com POUR TOUT
-//  Le mode est géré par les clés (test_ vs live_)
+//  UNE SEULE URL : paydunya.com
+//  Le mode est géré par les clés, pas par l'URL
 // ============================================================
 const PAYDUNYA_URL = 'https://paydunya.com/api/v1';
 
-console.log(`🔗 PayDunya URL: ${PAYDUNYA_URL}`);
+console.log(`🔗 URL PayDunya: ${PAYDUNYA_URL}`);
 console.log(`🔧 Mode: ${PAYDUNYA_CONFIG.mode}`);
-console.log(`🔑 Clé présente: ${PAYDUNYA_CONFIG.masterKey ? '✅' : '❌'}`);
+console.log(`🔑 Master Key présente: ${PAYDUNYA_CONFIG.masterKey ? '✅' : '❌'}`);
+
 // ============================================================
 //  ROUTE: Créer une transaction
 // ============================================================
@@ -45,7 +42,6 @@ router.post('/create', async (req, res) => {
     const totalEuro = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
     const totalFCFA = Math.round(totalEuro * 655.96);
 
-    // Mapping des méthodes
     const methodMap = {
       'mtn': 'MTN_MONEY',
       'moov': 'MOOV_MONEY',
@@ -69,7 +65,9 @@ router.post('/create', async (req, res) => {
 
     console.log('📦 Envoi à PayDunya:', JSON.stringify(payload, null, 2));
 
-    // Appel à PayDunya
+    // ============================================================
+    //  APPEL À paydunya.com AVEC LES CLÉS
+    // ============================================================
     const response = await axios.post(`${PAYDUNYA_URL}/checkout-invoice/create`, payload, {
       headers: {
         'Content-Type': 'application/json',
