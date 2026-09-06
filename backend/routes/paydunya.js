@@ -10,6 +10,9 @@ const { getCollection } = require('../db/mongodb');
 // ============================================================
 //  CONFIGURATION PAYDUNYA
 // ============================================================
+// ============================================================
+//  CONFIGURATION PAYDUNYA
+// ============================================================
 const PAYDUNYA_CONFIG = {
   masterKey: process.env.PAYDUNYA_MASTER_KEY,
   publicKey: process.env.PAYDUNYA_PUBLIC_KEY,
@@ -19,15 +22,14 @@ const PAYDUNYA_CONFIG = {
 };
 
 // ============================================================
-//  URL UNIVERSELLE - UTILISER paydunya.com DIRECTEMENT
-//  Cette URL fonctionne pour sandbox ET live
+//  URL PAYDUNYA - CHOIX SELON LE MODE
 // ============================================================
-const PAYDUNYA_URL = 'https://paydunya.com/api/v1';
+const PAYDUNYA_URL = PAYDUNYA_CONFIG.mode === 'live'
+  ? 'https://paydunya.com/api/v1'
+  : 'https://sandbox.paydunya.com/api/v1';
 
 console.log(`🔗 PayDunya URL: ${PAYDUNYA_URL}`);
 console.log(`🔧 Mode: ${PAYDUNYA_CONFIG.mode}`);
-console.log(`🔑 Clé: ${PAYDUNYA_CONFIG.masterKey ? '✅ Présente' : '❌ Manquante'}`);
-
 // ============================================================
 //  ROUTE: Créer une transaction
 // ============================================================
